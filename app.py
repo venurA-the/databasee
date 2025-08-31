@@ -11,7 +11,8 @@ from base64 import b64decode
 app = Flask(__name__)
 
 # --- Configuration ---
-DATABASE_URL = os.environ.get('DATABASE_URL')
+# Use environment variable for database URL in production
+DATABASE_URL = os.environ.get('DATABASE_URL') or "postgresql://<user>:<password>@<host>:<port>/<dbname>"
 TMDB_API_KEY = "52f6a75a38a397d940959b336801e1c3"
 ADMIN_USERNAME = "venura"
 ADMIN_PASSWORD_HASH = generate_password_hash("venura")
@@ -56,7 +57,7 @@ def fetch_tmdb_data(tmdb_id, media_type):
     if media_type == 'movie':
         url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits"
     elif media_type == 'tv':
-        url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits,seasons"
+        url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits" # We don't fetch seasons via TMDB API for dynamic front-end
     
     if not url:
         return None
@@ -79,14 +80,21 @@ def fetch_tmdb_data(tmdb_id, media_type):
             'release_date': data.get('release_date') if media_type == 'movie' else data.get('first_air_date'),
             'language': data.get('original_language'),
             'rating': data.get('vote_average'),
-            'cast_members': cast
+            'cast_members': cast,
+            'total_seasons': data.get('number_of_seasons') if media_type == 'tv' else None
         }
-        
-        if media_type == 'tv':
-            processed_data['total_seasons'] = data.get('number_of_seasons')
         
         return processed_data
     return None
+
+# --- Main Public Routes ---
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/api/docs")
+def api_docs():
+    return render_template("api_docs.html")
 
 # --- Admin Panel Routes (HTML/JS) ---
 @app.route("/admin")
@@ -109,12 +117,17 @@ def add_tv_page():
 def search_and_edit_page():
     return render_template("search_and_edit.html")
 
-# --- API Endpoints (Public) ---
+@app.route("/admin/edit")
+@requires_auth
+def edit_media_page():
+    return render_template("edit_media.html")
+
+# --- Public API Endpoints ---
 @app.route("/api/media", methods=["GET"])
 def get_all_media():
     conn = get_db()
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
-    cur.execute("SELECT * FROM media;")
+    cur.execute("SELECT * FROM media ORDER BY id DESC;")
     media = cur.fetchall()
     return jsonify([dict(row) for row in media])
 
@@ -125,10 +138,17 @@ def get_single_media(media_id):
     cur.execute("SELECT * FROM media WHERE id = %s;", (media_id,))
     media = cur.fetchone()
     if media:
+        # Convert JSONB fields to Python dicts if they are strings
+        for key in ['cast_members', 'video_links', 'download_links', 'seasons']:
+            if isinstance(media.get(key), str):
+                try:
+                    media[key] = json.loads(media[key])
+                except json.JSONDecodeError:
+                    media[key] = {}
         return jsonify(dict(media))
     return jsonify({"message": "Media not found"}), 404
 
-# --- API Endpoints (Admin) ---
+# --- Admin API Endpoints ---
 @app.route("/api/admin/tmdb_fetch", methods=["POST"])
 @requires_auth
 def tmdb_fetch_api():
@@ -213,3 +233,4 @@ def delete_media(media_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
+
