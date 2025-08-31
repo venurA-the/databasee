@@ -67,8 +67,8 @@
         }
 
         function editMedia(id) {
-            // Placeholder for an edit modal or page
-            alert(`Editing media with ID: ${id}`);
+            // Correctly navigates to the edit page with the media ID
+            window.location.href = `/admin/edit?id=${id}`;
         }
 
         async function deleteMedia(id) {
