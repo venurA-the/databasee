@@ -11,7 +11,6 @@ from base64 import b64decode
 app = Flask(__name__)
 
 # --- Configuration ---
-# Use environment variable for database URL in production
 DATABASE_URL = os.environ.get('DATABASE_URL') or "postgresql://<user>:<password>@<host>:<port>/<dbname>"
 TMDB_API_KEY = "52f6a75a38a397d940959b336801e1c3"
 ADMIN_USERNAME = "venura"
