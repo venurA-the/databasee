@@ -20,8 +20,11 @@ ADMIN_PASSWORD_HASH = generate_password_hash("venura")
 # --- Database Connection ---
 def get_db():
     if 'db' not in g:
-        g.db = psycopg2.connect(DATABASE_URL, sslmode='require')
-    return g.db
+        try:
+            g.db = psycopg2.connect(DATABASE_URL, sslmode='require')
+        except psycopg2.Error as e:
+            return None, str(e)
+    return g.db, None
 
 @app.teardown_appcontext
 def close_db(e=None):
@@ -57,7 +60,7 @@ def fetch_tmdb_data(tmdb_id, media_type):
     if media_type == 'movie':
         url = f"https://api.themoviedb.org/3/movie/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits"
     elif media_type == 'tv':
-        url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits" # We don't fetch seasons via TMDB API for dynamic front-end
+        url = f"https://api.themoviedb.org/3/tv/{tmdb_id}?api_key={TMDB_API_KEY}&append_to_response=credits"
     
     if not url:
         return None
@@ -66,7 +69,7 @@ def fetch_tmdb_data(tmdb_id, media_type):
     if response.status_code == 200:
         data = response.json()
         cast = []
-        for member in data['credits']['cast'][:10]: # Top 10 cast members
+        for member in data['credits']['cast'][:10]:
             cast.append({
                 "name": member.get("name"),
                 "character": member.get("character"),
@@ -125,7 +128,9 @@ def edit_media_page():
 # --- Public API Endpoints ---
 @app.route("/api/media", methods=["GET"])
 def get_all_media():
-    conn = get_db()
+    conn, error = get_db()
+    if error:
+        return jsonify({"message": "Database connection error", "error": error}), 500
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute("SELECT * FROM media ORDER BY id DESC;")
     media = cur.fetchall()
@@ -133,7 +138,9 @@ def get_all_media():
 
 @app.route("/api/media/<int:media_id>", methods=["GET"])
 def get_single_media(media_id):
-    conn = get_db()
+    conn, error = get_db()
+    if error:
+        return jsonify({"message": "Database connection error", "error": error}), 500
     cur = conn.cursor(cursor_factory=psycopg2.extras.DictCursor)
     cur.execute("SELECT * FROM media WHERE id = %s;", (media_id,))
     media = cur.fetchone()
@@ -169,7 +176,9 @@ def tmdb_fetch_api():
 @requires_auth
 def add_media():
     data = request.json
-    conn = get_db()
+    conn, error = get_db()
+    if error:
+        return jsonify({"message": "Database connection error", "error": error}), 500
     cur = conn.cursor()
     try:
         cur.execute("""
@@ -193,7 +202,9 @@ def add_media():
 @requires_auth
 def update_media(media_id):
     data = request.json
-    conn = get_db()
+    conn, error = get_db()
+    if error:
+        return jsonify({"message": "Database connection error", "error": error}), 500
     cur = conn.cursor()
     try:
         cur.execute("""
@@ -219,7 +230,9 @@ def update_media(media_id):
 @app.route("/api/admin/media/<int:media_id>", methods=["DELETE"])
 @requires_auth
 def delete_media(media_id):
-    conn = get_db()
+    conn, error = get_db()
+    if error:
+        return jsonify({"message": "Database connection error", "error": error}), 500
     cur = conn.cursor()
     try:
         cur.execute("DELETE FROM media WHERE id = %s;", (media_id,))
@@ -233,4 +246,3 @@ def delete_media(media_id):
 
 if __name__ == "__main__":
     app.run(debug=True)
-
