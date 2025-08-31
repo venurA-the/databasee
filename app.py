@@ -20,6 +20,7 @@ ADMIN_PASSWORD_HASH = generate_password_hash("venura")
 def get_db():
     if 'db' not in g:
         try:
+            # Set sslmode='require' for secure connection to Neon Tech
             g.db = psycopg2.connect(DATABASE_URL, sslmode='require')
         except psycopg2.Error as e:
             return None, str(e)
