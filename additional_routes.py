@@ -5,7 +5,7 @@
 def admin_edit_media(media_id):
     conn = get_db_connection()
     cur = conn.cursor()
-    cur.execute('SELECT * FROM media WHERE id = %s', (media_id,))
+    cur.execute('SELECT * FROM media WHERE id = ?', (media_id,))
     media = cur.fetchone()
     cur.close()
     conn.close()
@@ -294,13 +294,13 @@ def add_episode(media_id):
     cur = conn.cursor()
     
     # Get current seasons data
-    cur.execute('SELECT seasons FROM media WHERE id = %s AND type = %s', (media_id, 'tv'))
+    cur.execute('SELECT seasons FROM media WHERE id = ? AND type = ?', (media_id, 'tv'))
     result = cur.fetchone()
     
     if not result:
         return jsonify({'error': 'TV show not found'}), 404
     
-    seasons = result[0] or {}
+    seasons = json.loads(result['seasons']) if result['seasons'] else {}
     season_key = f"season_{data['season_number']}"
     
     # Initialize season if it doesn't exist
@@ -332,9 +332,46 @@ def add_episode(media_id):
     seasons[season_key]['total_episodes'] = len(seasons[season_key]['episodes'])
     
     # Update database
-    cur.execute('UPDATE media SET seasons = %s WHERE id = %s', (json.dumps(seasons), media_id))
+    cur.execute('UPDATE media SET seasons = ? WHERE id = ?', (json.dumps(seasons), media_id))
     conn.commit()
     cur.close()
     conn.close()
     
     return jsonify({'message': 'Episode added successfully'})
+
+@app.route('/admin/media/<int:media_id>', methods=['PUT'])
+@requires_auth
+def update_media(media_id):
+    data = request.get_json()
+    
+    conn = get_db_connection()
+    cur = conn.cursor()
+    
+    if data['type'] == 'movie':
+        cur.execute('''
+            UPDATE media SET title=?, description=?, thumbnail=?, release_date=?,
+                           language=?, rating=?, cast=?, video_links=?, download_links=?
+            WHERE id=?
+        ''', (
+            data['title'], data['description'], data['thumbnail'],
+            data['release_date'] or None, data['language'], data['rating'],
+            json.dumps(data['cast']), json.dumps(data['video_links']),
+            json.dumps(data['download_links']), media_id
+        ))
+    else:  # TV show
+        cur.execute('''
+            UPDATE media SET title=?, description=?, thumbnail=?, release_date=?,
+                           language=?, rating=?, cast=?, total_seasons=?, seasons=?
+            WHERE id=?
+        ''', (
+            data['title'], data['description'], data['thumbnail'],
+            data['release_date'] or None, data['language'], data['rating'],
+            json.dumps(data['cast']), data.get('total_seasons'),
+            json.dumps(data.get('seasons', {})), media_id
+        ))
+    
+    conn.commit()
+    cur.close()
+    conn.close()
+    
+    return jsonify({'message': 'Media updated successfully'})
