@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edit Media</title>
+    <style>
+        body { font-family: sans-serif; background: #282c34; color: #fff; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: #3b404a; padding: 20px; border-radius: 10px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="text"], input[type="number"], input[type="date"], textarea { width: 100%; padding: 8px; box-sizing: border-box; background: #4a505b; border: 1px solid #555; color: #fff; border-radius: 5px; }
+        .btn-primary { background: #6a11cb; color: #fff; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; }
+        .btn-secondary { background: #555; color: #fff; border: none; padding: 10px 15px; cursor: pointer; border-radius: 5px; }
+        .season-container { border: 1px solid #555; padding: 15px; border-radius: 8px; margin-top: 20px; }
+        .episode-container { margin-top: 10px; padding-left: 20px; border-left: 2px solid #555; }
+        .episode-row { display: flex; gap: 10px; align-items: center; margin-bottom: 10px; }
+        .remove-btn { background: #ff4d4d; color: #fff; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>✏️ Edit Media</h1>
+        <form id="edit-media-form">
+            <input type="hidden" id="media-id" name="id">
+            <div class="form-group">
+                <label for="type">Media Type:</label>
+                <input type="text" id="type" name="type" readonly>
+            </div>
+            <div class="form-group">
+                <label for="title">Title:</label>
+                <input type="text" id="title" name="title" required>
+            </div>
+            <div class="form-group">
+                <label for="description">Description:</label>
+                <textarea id="description" name="description"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="thumbnail">Thumbnail URL:</label>
+                <input type="text" id="thumbnail" name="thumbnail">
+            </div>
+            <div class="form-group">
+                <label for="release_date">Release Date:</label>
+                <input type="date" id="release_date" name="release_date">
+            </div>
+            <div class="form-group">
+                <label for="language">Language:</label>
+                <input type="text" id="language" name="language">
+            </div>
+            <div class="form-group">
+                <label for="rating">Rating:</label>
+                <input type="number" step="0.1" id="rating" name="rating">
+            </div>
+            <div class="form-group">
+                <label for="cast_members">Cast (JSON):</label>
+                <textarea id="cast_members" name="cast_members"></textarea>
+            </div>
+            <div id="dynamic-fields"></div>
+            <button type="submit" class="btn-primary">Update Media</button>
+        </form>
+    </div>
+
+    <script>
+        const API_BASE_URL = window.location.origin + '/api/media';
+        const ADMIN_API_BASE_URL = window.location.origin + '/api/admin';
+        const AUTH_HEADER = 'Basic ' + btoa('venura:venura');
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const mediaId = urlParams.get('id');
+            if (!mediaId) {
+                alert('No media ID specified.');
+                window.location.href = '/admin/search_and_edit';
+                return;
+            }
+            document.getElementById('media-id').value = mediaId;
+            await loadMediaData(mediaId);
+        });
+
+        async function loadMediaData(id) {
+            try {
+                const response = await fetch(`${API_BASE_URL}/${id}`);
+                if (!response.ok) {
+                    throw new Error('Media not found.');
+                }
+                const media = await response.json();
+                populateForm(media);
+            } catch (err) {
+                alert(err.message);
+                window.location.href = '/admin/search_and_edit';
+            }
+        }
+
+        function populateForm(media) {
+            document.getElementById('type').value = media.type;
+            document.getElementById('title').value = media.title;
+            document.getElementById('description').value = media.description;
+            document.getElementById('thumbnail').value = media.thumbnail;
+            document.getElementById('release_date').value = media.release_date;
+            document.getElementById('language').value = media.language;
+            document.getElementById('rating').value = media.rating;
+            document.getElementById('cast_members').value = JSON.stringify(media.cast_members, null, 2);
+
+            const dynamicFieldsContainer = document.getElementById('dynamic-fields');
+            dynamicFieldsContainer.innerHTML = '';
+
+            if (media.type === 'movie') {
+                dynamicFieldsContainer.innerHTML = `
+                    <div class="form-group">
+                        <label for="video_links">Video Links (JSON):</label>
+                        <textarea id="video_links" name="video_links">${JSON.stringify(media.video_links, null, 2) || '{}'}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="download_links">Download Links (JSON):</label>
+                        <textarea id="download_links" name="download_links">${JSON.stringify(media.download_links, null, 2) || '{}'}</textarea>
+                    </div>
+                `;
+            } else if (media.type === 'tv') {
+                dynamicFieldsContainer.innerHTML = `
+                    <div class="form-group">
+                        <label for="total_seasons">Total Seasons:</label>
+                        <input type="number" id="total_seasons" name="total_seasons" value="${media.total_seasons}">
+                    </div>
+                    <div class="form-group">
+                        <label for="seasons_json">Seasons (JSON):</label>
+                        <textarea id="seasons_json" name="seasons">${JSON.stringify(media.seasons, null, 2) || '{}'}</textarea>
+                    </div>
+                `;
+            }
+        }
+
+        document.getElementById('edit-media-form').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const form = e.target;
+            const formData = new FormData(form);
+            const mediaId = document.getElementById('media-id').value;
+            const mediaType = document.getElementById('type').value;
+
+            const data = {
+                type: mediaType,
+                title: formData.get('title'),
+                description: formData.get('description'),
+                thumbnail: formData.get('thumbnail'),
+                release_date: formData.get('release_date'),
+                language: formData.get('language'),
+                rating: parseFloat(formData.get('rating')),
+                cast_members: JSON.parse(formData.get('cast_members') || '[]')
+            };
+
+            if (mediaType === 'movie') {
+                data.video_links = JSON.parse(formData.get('video_links') || '{}');
+                data.download_links = JSON.parse(formData.get('download_links') || '{}');
+            } else if (mediaType === 'tv') {
+                data.total_seasons = parseInt(formData.get('total_seasons'));
+                data.seasons = JSON.parse(formData.get('seasons') || '{}');
+            }
+
+            try {
+                const response = await fetch(`${ADMIN_API_BASE_URL}/media/${mediaId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': AUTH_HEADER },
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (response.ok) {
+                    alert('Media updated successfully!');
+                    window.location.href = '/admin/search_and_edit';
+                } else {
+                    alert(`Error: ${result.message}`);
+                }
+            } catch (err) {
+                alert('An unexpected error occurred during update.');
+            }
+        });
+    </script>
+</body>
+</html>
