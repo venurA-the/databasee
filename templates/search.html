@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search Media</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; max-width: 1000px; margin: auto; }
+        h1 { text-align: center; }
+        #search-form { text-align: center; margin-bottom: 20px; }
+        #search-input { width: 50%; padding: 8px; margin-right: 10px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .actions a { margin-right: 10px; }
+        .delete-btn { color: red; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Search Media</h1>
+    <div id="search-form">
+        <input type="text" id="search-input" placeholder="Search by ID or Title...">
+        <button onclick="searchMedia()">Search</button>
+    </div>
+    <table id="media-table">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Type</th>
+                <th>Title</th>
+                <th>Release Date</th>
+                <th>Rating</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody id="media-results">
+        </tbody>
+    </table>
+    <script>
+        document.addEventListener('DOMContentLoaded', fetchAllMedia);
+
+        async function fetchAllMedia() {
+            try {
+                const response = await fetch('/api/media');
+                if (response.ok) {
+                    const media = await response.json();
+                    displayResults(media);
+                } else {
+                    alert('Failed to fetch media data.');
+                }
+            } catch (error) {
+                alert('An error occurred fetching data.');
+            }
+        }
+
+        async function searchMedia() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const tableBody = document.getElementById('media-results');
+            tableBody.innerHTML = '';
+
+            try {
+                const response = await fetch('/api/media');
+                if (!response.ok) throw new Error('Failed to fetch media data.');
+                const media = await response.json();
+
+                const filteredMedia = media.filter(item => 
+                    String(item.id) === query || item.title.toLowerCase().includes(query)
+                );
+
+                if (filteredMedia.length > 0) {
+                    displayResults(filteredMedia);
+                } else {
+                    tableBody.innerHTML = '<tr><td colspan="6">No media found.</td></tr>';
+                }
+            } catch (error) {
+                alert('An error occurred during search: ' + error.message);
+            }
+        }
+
+        function displayResults(media) {
+            const tableBody = document.getElementById('media-results');
+            tableBody.innerHTML = '';
+            media.forEach(item => {
+                const row = `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.type}</td>
+                        <td>${item.title}</td>
+                        <td>${item.release_date || 'N/A'}</td>
+                        <td>${item.rating || 'N/A'}</td>
+                        <td class="actions">
+                            <a href="/admin/edit/${item.id}">Edit</a>
+                            ${item.type === 'tv' ? `<a href="/admin/add_episode/${item.id}">Add Episode</a>` : ''}
+                            <a href="#" class="delete-btn" onclick="deleteMedia(${item.id})">Delete</a>
+                        </td>
+                    </tr>
+                `;
+                tableBody.innerHTML += row;
+            });
+        }
+
+        async function deleteMedia(id) {
+            if (confirm('Are you sure you want to delete this item?')) {
+                try {
+                    const response = await fetch(`/admin/media/${id}`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Authorization': 'Basic ' + btoa('venura:venura')
+                        }
+                    });
+                    if (response.ok) {
+                        alert('Media deleted successfully!');
+                        window.location.reload();
+                    } else {
+                        const result = await response.json();
+                        alert('Error deleting media: ' + result.message);
+                    }
+                } catch (error) {
+                    alert('An error occurred.');
+                }
+            }
+        }
+    </script>
+</body>
+</html>
