@@ -109,15 +109,47 @@
 
             if (media.type === 'movie') {
                 dynamicFieldsContainer.innerHTML = `
+                    <h2>🔗 Video Links</h2>
                     <div class="form-group">
-                        <label for="video_links">Video Links (JSON):</label>
-                        <textarea id="video_links" name="video_links">${JSON.stringify(media.video_links || {}, null, 2)}</textarea>
+                        <label for="video_720p">Video 720p URL:</label>
+                        <input type="text" id="video_720p" name="video_720p">
                     </div>
                     <div class="form-group">
-                        <label for="download_links">Download Links (JSON):</label>
-                        <textarea id="download_links" name="download_links">${JSON.stringify(media.download_links || {}, null, 2)}</textarea>
+                        <label for="video_1080p">Video 1080p URL:</label>
+                        <input type="text" id="video_1080p" name="video_1080p">
+                    </div>
+                    <div class="form-group">
+                        <label for="video_2160p">Video 2160p URL:</label>
+                        <input type="text" id="video_2160p" name="video_2160p">
+                    </div>
+                    <h2>⬇️ Download Links</h2>
+                    <div class="form-group">
+                        <label for="download_720p">Download 720p URL:</label>
+                        <input type="text" id="download_720p" name="download_720p">
+                    </div>
+                    <div class="form-group">
+                        <label for="download_1080p">Download 1080p URL:</label>
+                        <input type="text" id="download_1080p" name="download_1080p">
+                    </div>
+                    <div class="form-group">
+                        <label for="download_2160p">Download 2160p URL:</label>
+                        <input type="text" id="download_2160p" name="download_2160p">
                     </div>
                 `;
+
+                // Populate video links
+                if (media.video_links) {
+                    document.getElementById('video_720p').value = media.video_links.video_720p || '';
+                    document.getElementById('video_1080p').value = media.video_links.video_1080p || '';
+                    document.getElementById('video_2160p').value = media.video_links.video_2160p || '';
+                }
+
+                // Populate download links
+                if (media.download_links) {
+                    document.getElementById('download_720p').value = media.download_links.download_720p?.url || '';
+                    document.getElementById('download_1080p').value = media.download_links.download_1080p?.url || '';
+                    document.getElementById('download_2160p').value = media.download_links.download_2160p?.url || '';
+                }
             } else if (media.type === 'tv') {
                 dynamicFieldsContainer.innerHTML = `
                     <div class="form-group">
@@ -207,8 +239,16 @@
             };
 
             if (mediaType === 'movie') {
-                data.video_links = JSON.parse(formData.get('video_links') || '{}');
-                data.download_links = JSON.parse(formData.get('download_links') || '{}');
+                data.video_links = {
+                    video_720p: form.video_720p.value || undefined,
+                    video_1080p: form.video_1080p.value || undefined,
+                    video_2160p: form.video_2160p.value || undefined
+                };
+                data.download_links = {
+                    download_720p: form.download_720p.value ? { url: form.download_720p.value, file_type: 'webrip' } : undefined,
+                    download_1080p: form.download_1080p.value ? { url: form.download_1080p.value, file_type: 'webrip' } : undefined,
+                    download_2160p: form.download_2160p.value ? { url: form.download_2160p.value, file_type: 'webrip' } : undefined
+                };
             } else if (mediaType === 'tv') {
                 const seasons = {};
                 const seasonContainers = document.querySelectorAll('.season-container');
@@ -259,6 +299,9 @@
                 alert('An unexpected error occurred during update.');
             }
         });
+
+        // Initial call to fetch and populate data
+        fetchAndPopulateMedia();
     </script>
 </body>
 </html>
