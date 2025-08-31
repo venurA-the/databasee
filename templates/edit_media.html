@@ -229,26 +229,28 @@
 
             const data = {
                 type: mediaType,
-                title: formData.get('title'),
-                description: formData.get('description'),
-                thumbnail: formData.get('thumbnail'),
-                release_date: formData.get('release_date'),
-                language: formData.get('language'),
-                rating: parseFloat(formData.get('rating')),
-                cast_members: JSON.parse(formData.get('cast_members') || '[]')
+                title: form.title.value,
+                description: form.description.value,
+                thumbnail: form.thumbnail.value,
+                release_date: form.release_date.value,
+                language: form.language.value,
+                rating: parseFloat(form.rating.value) || null,
+                cast_members: JSON.parse(form.cast_members.value || '[]')
             };
 
             if (mediaType === 'movie') {
                 data.video_links = {
-                    video_720p: form.video_720p.value || undefined,
-                    video_1080p: form.video_1080p.value || undefined,
-                    video_2160p: form.video_2160p.value || undefined
+                    video_720p: form.video_720p.value || null,
+                    video_1080p: form.video_1080p.value || null,
+                    video_2160p: form.video_2160p.value || null
                 };
                 data.download_links = {
-                    download_720p: form.download_720p.value ? { url: form.download_720p.value, file_type: 'webrip' } : undefined,
-                    download_1080p: form.download_1080p.value ? { url: form.download_1080p.value, file_type: 'webrip' } : undefined,
-                    download_2160p: form.download_2160p.value ? { url: form.download_2160p.value, file_type: 'webrip' } : undefined
+                    download_720p: form.download_720p.value ? { url: form.download_720p.value, file_type: 'webrip' } : null,
+                    download_1080p: form.download_1080p.value ? { url: form.download_1080p.value, file_type: 'webrip' } : null,
+                    download_2160p: form.download_2160p.value ? { url: form.download_2160p.value, file_type: 'webrip' } : null
                 };
+                data.total_seasons = null;
+                data.seasons = null;
             } else if (mediaType === 'tv') {
                 const seasons = {};
                 const seasonContainers = document.querySelectorAll('.season-container');
@@ -256,21 +258,21 @@
                     const seasonNumber = parseInt(seasonDiv.querySelector('.episode-container').dataset.seasonNumber);
                     const episodes = [];
                     const episodeRows = seasonDiv.querySelectorAll('.episode-row');
-
+                    
                     episodeRows.forEach((row, index) => {
                         const episodeNumber = index + 1;
                         const name = row.querySelector(`[name$="_episode_${episodeNumber}_name"]`).value;
                         const video = row.querySelector(`[name$="_episode_${episodeNumber}_video"]`).value;
                         const download = row.querySelector(`[name$="_episode_${episodeNumber}_download"]`).value;
-
+                        
                         episodes.push({
                             episode_number: episodeNumber,
                             episode_name: name,
-                            video_720p: video,
-                            download_720p: { url: download, file_type: 'webrip' }
+                            video_720p: video || null,
+                            download_720p: download ? { url: download, file_type: 'webrip' } : null
                         });
                     });
-
+                    
                     seasons[`season_${seasonNumber}`] = {
                         season_number: seasonNumber,
                         total_episodes: episodes.length,
@@ -279,6 +281,8 @@
                 });
                 data.total_seasons = Object.keys(seasons).length;
                 data.seasons = seasons;
+                data.video_links = null;
+                data.download_links = null;
             }
 
             try {
@@ -293,7 +297,7 @@
                     alert('Media updated successfully!');
                     window.location.href = '/admin/search_and_edit';
                 } else {
-                    alert(`Error: ${result.message}`);
+                    alert(`Error: ${result.message || result.error}`);
                 }
             } catch (err) {
                 alert('An unexpected error occurred during update.');
@@ -301,7 +305,7 @@
         });
 
         // Initial call to fetch and populate data
-        fetchAndPopulateMedia();
+        loadMediaData(document.getElementById('media-id').value);
     </script>
 </body>
 </html>
