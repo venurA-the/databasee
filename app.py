@@ -144,13 +144,6 @@ def get_single_media(media_id):
     cur.execute("SELECT * FROM media WHERE id = %s;", (media_id,))
     media = cur.fetchone()
     if media:
-        # Convert JSONB fields to Python dicts if they are strings
-        for key in ['cast_members', 'video_links', 'download_links', 'seasons']:
-            if isinstance(media.get(key), str):
-                try:
-                    media[key] = json.loads(media[key])
-                except json.JSONDecodeError:
-                    media[key] = {}
         return jsonify(dict(media))
     return jsonify({"message": "Media not found"}), 404
 
