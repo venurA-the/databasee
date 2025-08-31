@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Search & Edit</title>
+    <style>
+        body { font-family: sans-serif; background: #282c34; color: #fff; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        input[type="text"] { width: 100%; padding: 8px; box-sizing: border-box; background: #4a505b; border: 1px solid #555; color: #fff; border-radius: 5px; }
+        .media-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 20px; margin-top: 20px; }
+        .media-item { background: #3b404a; padding: 10px; border-radius: 8px; text-align: center; }
+        .media-item img { max-width: 100%; height: auto; border-radius: 5px; }
+        .media-item h3 { margin: 10px 0; font-size: 1em; }
+        .media-item a { color: #2575fc; text-decoration: none; font-weight: bold; }
+        .btn-delete { color: #ff4d4d; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Search & Edit Media</h1>
+        <input type="text" id="search-input" placeholder="Search by title..." onkeyup="filterMedia()">
+        <div class="media-grid" id="media-grid"></div>
+    </div>
+
+    <script>
+        const API_BASE_URL = window.location.origin + '/api/media';
+        const ADMIN_API_BASE_URL = window.location.origin + '/api/admin';
+        const AUTH_HEADER = 'Basic ' + btoa('venura:venura');
+        let allMedia = [];
+
+        async function fetchAllMedia() {
+            try {
+                const response = await fetch(API_BASE_URL);
+                if (response.ok) {
+                    allMedia = await response.json();
+                    displayMedia(allMedia);
+                } else {
+                    alert('Failed to fetch media.');
+                }
+            } catch (err) {
+                alert('An error occurred while fetching media.');
+            }
+        }
+
+        function displayMedia(media) {
+            const grid = document.getElementById('media-grid');
+            grid.innerHTML = '';
+            media.forEach(item => {
+                const itemDiv = document.createElement('div');
+                itemDiv.classList.add('media-item');
+                itemDiv.innerHTML = `
+                    <img src="${item.thumbnail}" alt="${item.title}">
+                    <h3>${item.title} (${item.type})</h3>
+                    <p>Rating: ${item.rating}</p>
+                    <a href="#" onclick="editMedia(${item.id})">Edit</a> | 
+                    <span class="btn-delete" onclick="deleteMedia(${item.id})">Delete</span>
+                `;
+                grid.appendChild(itemDiv);
+            });
+        }
+
+        function filterMedia() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const filteredMedia = allMedia.filter(item => item.title.toLowerCase().includes(query));
+            displayMedia(filteredMedia);
+        }
+
+        function editMedia(id) {
+            // Placeholder for an edit modal or page
+            alert(`Editing media with ID: ${id}`);
+        }
+
+        async function deleteMedia(id) {
+            if (confirm('Are you sure you want to delete this?')) {
+                try {
+                    const response = await fetch(`${ADMIN_API_BASE_URL}/media/${id}`, {
+                        method: 'DELETE',
+                        headers: { 'Authorization': AUTH_HEADER }
+                    });
+                    if (response.ok) {
+                        alert('Media deleted successfully!');
+                        fetchAllMedia();
+                    } else {
+                        const error = await response.json();
+                        alert(`Error: ${error.message}`);
+                    }
+                } catch (err) {
+                    alert('An error occurred while deleting.');
+                }
+            }
+        }
+
+        fetchAllMedia();
+    </script>
+</body>
+</html>
